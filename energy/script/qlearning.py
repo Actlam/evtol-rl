@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import rospy
 import sensor_msgs
@@ -78,6 +79,7 @@ def current_seq_callback(data):
   global total_wat_pwm
   global push_wp_list
   global prev_current_seq
+  global s_list
 
   print('current_seq', current_seq)
   print('data.current_seq', data.current_seq)
@@ -113,11 +115,6 @@ def current_seq_callback(data):
       # ホバリング, 推進用それぞれ全体の累計になっているリストの要素をウェイポイント区間の累計に変換
       hov_wat_area.append(hov_wat - prev_hov_wat)
       pus_wat_area.append(pus_wat - prev_pus_wat)
-
-
-
-      # ホバリング用のPWM累計と, 推進用のPWM累計をウェイポイント区間に変換したものの合計
-      total_wat_pwm.append(hov_wat_area + pus_wat_area)
       
 
       # 最新のウェイポイント状態を更新
@@ -136,8 +133,22 @@ def current_seq_callback(data):
       print('ただいま遷移中')
       current_seq = data.current_seq
 
+  # action終了時にtotal_wat_pwmから報酬であるs_listを計算
+  if data.current_seq == len(push_wp_list) - 1:
+    # ホバリング用のPWM累計と, 推進用のPWM累計をウェイポイント区間に変換したものの合計
+    for i in range(len(hov_wat_area)):
+      total_wat_pwm.append(float(hov_wat_area[i] + pus_wat_area[i]))
+    
+    # 罰則値で調整する
+    DENOMINATOR = 2000000
+    for i in total_wat_pwm:
+      s_list.append(float(i)/DENOMINATOR)
 
 
+    print('s_list:', s_list)
+
+
+  print('push_wp_list',len(push_wp_list)-1)
 
 # subscriber -> サーボのPWMを取得するためのコールバック関数呼び出し
 def rc_out():
@@ -156,12 +167,14 @@ def reward():
   waypoint_list()
 
 # 便利関数
+# 現在の機体で保存されているウェイポイントを削除
 def wp_clear():
   rospy.wait_for_service("/mavros/mission/clear")
   waipoint_clear = rospy.ServiceProxy('mavros/mission/clear', WaypointClear)
   print('wp clear done')
   return waipoint_clear.call().success
 
+# アームする
 def arm():
   print("\n----------armingCall----------")
   rospy.wait_for_service("/mavros/cmd/arming")
@@ -169,15 +182,7 @@ def arm():
   resp = armService(1)
   rospy.sleep(.5)
 
-def calc_reward(total_wat_pwm):
-  global s_list
-  DENOMINATOR = 2000000 # 罰則値の調整を行う
-  
-  for i in total_wat_pwm:
-    s_list.append((round(i[0] + i[1])/DENOMINATOR,2))    
-    
-
-
+# ウェイポイントを操作する関数
 # 引数でウェイポイント
 def free_waypoint(x_lat=0, y_long=0, z_alt=10, wp_frame=6, wp_command=16, wp_param1=0):
   global init_lat
@@ -276,7 +281,6 @@ def action():
   rospy.sleep(1)
   setmode = rospy.ServiceProxy('mavros/set_mode', SetMode)
   print(setmode(0, 'AUTO.MISSION'))
-  rospy.spin()
 
 # 強化学習用
 def main():
@@ -294,7 +298,6 @@ def main():
 
   reward()
   action()
-  calc_reward(total_wat_pwm)
   print('s_list :', s_list)
 
   rospy.spin()
