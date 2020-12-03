@@ -32,14 +32,14 @@ end_sw = False
 
 push_wp_list = []
 
-wp = [[[  0,  0, 30, 0], [1,2,3]], # start  　
+wp_ = [[[  0,  0, 30, 0], [1,2,3]], # start  　
       [[  0,200, 30, 0], [2,4]],
       [[150,100, 30, 0], [1,3,4]],
       [[300,  0, 30, 1], [2, 4]],
       [[300,200, 30, 1], []]] # goal
 
 # ウェイポイント
-wp__ = [[[  0,  0, 30, 0], [1,2,3,4,5,6,7,8,9]], # start  　
+wp = [[[  0,  0, 30, 0], [1,2,3,4,5,6,7,8,9]], # start  　
       [[  0,200, 30, 0], [10]],
       [[  0,200, 40, 0], [10]],
       [[  0,200, 50, 0], [10]],
@@ -49,7 +49,7 @@ wp__ = [[[  0,  0, 30, 0], [1,2,3,4,5,6,7,8,9]], # start  　
       [[300,  0, 30, 1], [10]],
       [[300,  0, 40, 1], [10]],
       [[300,  0, 50, 1], [10]],
-      [[300,200, 40, 1], []]] # goal
+      [[300,200, 40, 1], [999]]] # goal
 
 wp_ = [[[  0,  0, 30, 0], [3,4,5,18,19,20,21,22,23,63,64,65,78,79,80,81,82,83]],
                  [[  0,  0, 40, 0], [3,4,5,18,19,20,21,22,23,63,64,65,78,79,80,81,82,83]], # Start
@@ -173,7 +173,8 @@ wp_ = [[[  0,  0, 30, 0], [3,4,5,18,19,20,21,22,23,63,64,65,78,79,80,81,82,83]],
                  [[500,300, 50, 1], [58]]]
 
 # テスト用のウェイポイントリスト
-wp_list = [[0, 0, 30, 0], [0, 200, 30, 1], [150, 100, 30, 0], [100, 0, 30, 1]]
+# wp_list = [[0, 0, 30, 0], [0, 200, 30, 1], [150, 100, 30, 0], [100, 0, 30, 1]]
+wp_list = []
 
 
 
@@ -211,13 +212,13 @@ def rc_out_callback(data):
 # callback関数 -> 最新のウェイポイント情報を取得
 def current_seq_callback(data):
   global current_seq
+  global prev_current_seq
   global hov_wat_total
   global pus_wat_total
   global hov_wat_area
   global pus_wat_area
   global total_wat_pwm
   global push_wp_list
-  global prev_current_seq
   global end_sw
   global r_list
 
@@ -226,13 +227,6 @@ def current_seq_callback(data):
   print('prev_current_seq', prev_current_seq)
   # print('push_wp_list', push_wp_list)
   print('push_wp_list[data]', push_wp_list[data.current_seq].command)
-
-  # 1エピソードの終了判定
-  print('before end_sw',data.current_seq, prev_current_seq)
-  if data.current_seq < prev_current_seq:
-    print('end_sw is true.')
-    end_sw = True
-  prev_current_seq = data.current_seq
 
   # 次のウェイポイントへ進んだことを確認しpwmの累計を計算
   if current_seq != data.current_seq:
@@ -268,13 +262,13 @@ def current_seq_callback(data):
       current_seq = data.current_seq
 
 
-      print('hov_watt =', hov_wat)
-      print('pus_watt =', pus_wat)
-      print('hov_wat_area =', hov_wat_area)
-      print('pus_wat_area =', pus_wat_area)
-      print('hov_wat_total =', hov_wat_total)
-      print('pus_wat_total =', pus_wat_total)
-      print('total_wat_pwm', total_wat_pwm)
+      # print('hov_watt =', hov_wat)
+      # print('pus_watt =', pus_wat)
+      # print('hov_wat_area =', hov_wat_area)
+      # print('pus_wat_area =', pus_wat_area)
+      # print('hov_wat_total =', hov_wat_total)
+      # print('pus_wat_total =', pus_wat_total)
+      # print('total_wat_pwm', total_wat_pwm)
 
     elif push_wp_list[data.current_seq].command == 3000:
       print('ただいま遷移中')
@@ -297,6 +291,21 @@ def current_seq_callback(data):
 
   print('push_wp_list',len(push_wp_list)-1)
 
+# callback関数 -> armの状態を取得し終了判定をする
+def state_callback(data):
+  global end_sw
+  
+  arm_state = True
+  arm_state = data.armed
+
+  # 1エピソードの終了判定
+  # print('current_seq', current_seq)
+  if current_seq != 0 and not arm_state:
+    print('end_sw is true.')
+    end_sw = True
+    rospy.sleep(5)
+  
+
 # subscriber -> サーボのPWMを取得するためのコールバック関数呼び出し
 def rc_out():
   rospy.Subscriber('/mavros/rc/out',mavros_msgs.msg.RCOut, rc_out_callback)
@@ -306,11 +315,16 @@ def waypoint_list():
   # current_seqの初期値がバグってるので回避
   rospy.Subscriber("/mavros/mission/waypoints", WaypointList, current_seq_callback)
 
+# subscriber -> armの真偽値をミッションの終了判定に用いる
+def state():
+  rospy.Subscriber('/mavros/state',mavros_msgs.msg.State, state_callback)
+
 # 報酬に関する関数をまとめて呼び出す
 def reward():
   print('3. 報酬値を計算してるよ')
   rc_out()
   waypoint_list()
+  state()
 
 
 # 便利関数
@@ -328,6 +342,12 @@ def arm():
   armService = rospy.ServiceProxy("/mavros/cmd/arming", CommandBool)
   resp = armService(1)
   rospy.sleep(.5)
+
+# 環境のリセット
+def reset():
+  rospy.wait_for_service('/gazebo/reset_world')
+  reset_world = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+  reset_world()
 
 # ウェイポイントを操作する関数
 # 引数でウェイポイント
@@ -404,12 +424,14 @@ def action():
   rospy.Subscriber("/mavros/global_position/raw/fix", NavSatFix, global_position_callback)
   
   # 機体へ送信するためのウェイポイントリストをご用意
-  push_wp_list = []
+  # push_wp_list = []
 
   # エピソードごとに使用するウェイポイントは異なるので過去のウェイポイントリストを削除
   wp_clear()
 
   rospy.sleep(.5)
+
+  print('action_wp_list', wp_list)
 
   # ウェイポイントリストを作る
   push_wp_list = create_push_wp_list(push_wp_list, wp_list)
@@ -441,7 +463,6 @@ def simple_convert_into_pi_from_theta(wp):
   
   return pi
 
-pi_0 = simple_convert_into_pi_from_theta(wp)
 
 # ε-greedy法を実装
 def get_action(s, Q, epsilon, pi_0):
@@ -449,8 +470,10 @@ def get_action(s, Q, epsilon, pi_0):
   # 行動を決める
   if np.random.rand() < epsilon:
     # εの確率でランダムに動く
+
     next_direction = np.random.choice(wp[s][1], p=pi_0[s])
   else:
+    print(Q[s])
     next_direction = wp[s][1][np.nanargmax(Q[s])]
 
   return wp[s][1].index(next_direction)
@@ -462,6 +485,8 @@ def get_s_next(s, a):
   
   return next_direction
 
+pi_0 = simple_convert_into_pi_from_theta(wp)
+print('pi_0_check', pi_0)
 Q = copy.deepcopy(pi_0)
 eta = 0.1 #学習率
 gamma = 0.9 #時間割引率
@@ -473,7 +498,7 @@ episode = 1
 
 def Q_learning(s,a,r,s_next,Q,eta,gamma):
   
-  if s_next == 13:  #ゴール時
+  if s_next == 10:  #ゴール時
     Q[s][a] = Q[s][a] + eta*(r - Q[s][a])
   else:
     Q[s][a] = Q[s][a] + eta * (r + gamma *np.nanmax(Q[s_next]) - Q[s][a])
@@ -497,7 +522,7 @@ def goal_graph_ret_s_a_Q(Q, epsilon, eta, gamma, pi):
     # 次の状態を代入．行動はまだ未確定なのでnan
     
     #　報酬を与え，次の行動を求めます
-    if s_next == 4:
+    if s_next == 10:
       r = 1 # ゴールにたどり着いたら報酬を与える
       a_next = np.nan
     else:
@@ -508,7 +533,7 @@ def goal_graph_ret_s_a_Q(Q, epsilon, eta, gamma, pi):
     # 価値関数を更新
     # Q = Q_learning(s,a,r,s_next,Q,eta,gamma)
     # 終了判定
-    if s_next == 4:
+    if s_next == 10:
       break
     else:
       s=s_next
@@ -517,7 +542,7 @@ def goal_graph_ret_s_a_Q(Q, epsilon, eta, gamma, pi):
 
 
 
-# 強化学習用
+# 強化学習用のメイン文
 def main():
   global episode
   global eta
@@ -528,12 +553,28 @@ def main():
   global s_list
   global r_list
   global end_sw
+  global wp_list
+
+  # # global変数
+  # init_lat = 0
+  # init_long = 0
+  # hov_wat = 0
+  # pus_wat = 0
+  # current_seq = 0
+  # prev_current_seq = 0
+  # hov_wat_total = []
+  # pus_wat_total = []
+  # hov_wat_area = []
+  # pus_wat_area = []
+  # total_wat_pwm = []
+  # r_list = []
+  # end_sw = False
 
   # ノードを定義　pythonファイルにつき1つあればよい
   rospy.init_node('qlearning')
 
   while is_continue:
-    print ("episode : "+ str(episode))
+    print ("---------------------------------------------episode : "+ str(episode)+"-----------------------------------------------------")
 
     # ε-greedyの値を少しずつ小さくする
     epsilon = epsilon / 2
@@ -557,30 +598,31 @@ def main():
       wp_list.append(wp[s_a_history[i][0]][0])
       s_list.append(s_a_history[i][0])
       a_list.append(s_a_history[i][1])
-      if episode > 3:
+      if episode > 5:
         break
     
-    print('1. 今回のwp_listはコチラ→ ', wp_list)
+    print('1. 実行するwp_listをwpから生成する')
+    print('実行するwp_listはコチラ→ ', wp_list)
 
     rospy.sleep(5)
-    # wp_listからをmavrosで有効なウェイポイントに変換して送信する
+
+    # wp_listからmavrosで有効なウェイポイントに変換して送信する
     action()
 
     # 機体の使用したPWMから報酬値を返す関数
     reward()
-    rospy.spin()
+
+    while not end_sw:
+      pass
 
     # Q-Learning用変数のデバッグ
-    print('できあがったs_listは→ ', s_list)
-    print('できあがったa_listは→ ', a_list)
-    print('できあがったr_listは→ ', r_list)
-    print('できあがったwp    は→ ', wp)
-    print('できあがったQ     は→ ', Q)
-    print('できあがったeta   は→ ', eta)
-    print('できあがったgamma は→ ', gamma)
-
-    # while not end_sw:
-    #   pass
+    print('s_list ', s_list)
+    print('a_list ', a_list)
+    print('r_list ', r_list)
+    print('wp     ', wp)
+    print('Q      ', Q)
+    print('eta    ', eta)
+    print('gamma  ', gamma)
 
     """Qテーブルのバッチ更新"""
     print('4. Qテーブルのバッチ更新するよ')
@@ -589,8 +631,10 @@ def main():
       Q = Q_learning(s_list[i],a_list[i],r_list[i],wp[s_list[i]][1][a_list[i]],Q,eta,gamma)
 
     print('5. リセットする予定だよ')
+    # reset()
+    wp_clear()
+    current_seq = 0
 
-    # rospy.spin()
 
 
 if __name__ == '__main__':
