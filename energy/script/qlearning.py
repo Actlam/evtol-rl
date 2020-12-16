@@ -17,6 +17,7 @@ import numpy as np
 import time
 import pickle
 import os
+import pprint
 
 # global変数
 init_lat = 0
@@ -57,8 +58,8 @@ wp_ = [[[  0,  0, 30, 0], [1,2,3,4,5,6,7,8,9]], # start  　
       [[300,  0, 50, 1], [10]],
       [[300,200, 40, 1], [999]]] # goal
 
-wp = [[[  0,  0, 30, 0], [3,4,5,18,19,20,63,64,65,78,79,80]],
-      [[  0,  0, 40, 0], [3,4,5,18,19,20,63,64,65,78,79,80]], # Start
+wp = [[[  0,  0, 40, 0], [3,4,5,18,19,20,63,64,65,78,79,80]], # Start
+      [[  0,  0, 30, 0], [3,4,5,18,19,20,63,64,65,78,79,80]],
       [[  0,  0, 50, 0], [3,4,5,18,19,20,63,64,65,78,79,80]],
       [[100,  0, 30, 0], [6,7,8,21,22,23,66,67,68,81,82,83]],
       [[100,  0, 40, 0], [6,7,8,21,22,23,66,67,68,81,82,83]],
@@ -186,7 +187,6 @@ wp_list = []
 
 # callback関数 -> エージェントの初期座標を取得
 def global_position_callback(globalposition):
-  # print("\n----------globalPosition_callback----------")
   global init_lat
   global init_long
   global init_alt
@@ -209,8 +209,8 @@ def rc_out_callback(rcout):
   INIT_PUSHER_RC = 1000
   
   # プロペラのpwmを取得し, ホバリング用と推進用で学習用に丸める
-  hov_wat = hov_wat + ((rcout.channels[0] + rcout.channels[1] + rcout.channels[2] + rcout.channels[3]) - INIT_HOVER_RC * 4) / 4
-  pus_wat = pus_wat + (rcout.channels[4] - INIT_PUSHER_RC) * 2.75
+  hov_wat = hov_wat + ((rcout.channels[0] + rcout.channels[1] + rcout.channels[2] + rcout.channels[3]) - (INIT_HOVER_RC * 4))
+  pus_wat = pus_wat + (rcout.channels[4] - INIT_PUSHER_RC) * 2
   # print('hov_wat -> ',hov_wat)
   # print('pus_wat -> ',pus_wat)
   return hov_wat, pus_wat
@@ -309,6 +309,7 @@ def current_seq_callback(waypointlist):
           r_list.append(-float(pwm)/DENOMINATOR)
 
         print('できたてのr_list:', r_list)
+        print('比較用のwp_list', wp_list)
   else:
     print('bad callback回避成功')
     pass
@@ -492,7 +493,8 @@ def create_push_wp_list(push_wp_list, wp_list):
   for coord in wp_list:
     # hoverモード時の処理
     print('coord', coord)
-    if coord[3] == 0:
+    # if coord[3] == 0:
+    if current_fm == 0:
       # 前回とモードが違えば遷移飛行とみなし, planeモードへ遷移するwpを追加
       if current_fm != coord[3]:
         push_wp_list.append(free_waypoint(wp_frame=2, wp_command=3000, wp_param1=4))
@@ -500,7 +502,8 @@ def create_push_wp_list(push_wp_list, wp_list):
       push_wp_list.append(free_waypoint(coord[0], coord[1], coord[2], wp_param2=15))
     
     # planeモード時の処理
-    if coord[3] == 1:
+    # if coord[3] == 1:
+    if current_fm == 1:
       # 前回とモードが違えば遷移飛行とみなし, hoverモードへ移行するwpを追加
       if current_fm != coord[3]:
         push_wp_list.append(free_waypoint(wp_frame=2, wp_command=3000, wp_param1=3))
@@ -556,7 +559,6 @@ def action():
 
   rospy.sleep(1)
   setmode = rospy.ServiceProxy('mavros/set_mode', SetMode)
-  print('automission call')
   print(setmode(0, 'AUTO.MISSION'))
 
 # ↓↓↓↓↓↓ここから強化学習↓↓↓↓↓↓↓↓
@@ -683,6 +685,9 @@ def main():
   if q_table_binary_exist:
     print('過去の学習を引き継ぎ, Q値を更新しました')
     Q, epsilon, episode = load()
+    print('episode', episode)
+    print('epsilon', epsilon)
+    print('読み込んだQ', Q)
   else:
     print('過去の学習データが存在しないため, 新たに学習を始めます')
 
@@ -713,7 +718,7 @@ def main():
       wp_list.append(wp[s_a_history[i][0]][0])
       s_list.append(s_a_history[i][0])
       a_list.append(s_a_history[i][1])
-      if episode > 200:
+      if episode > 2000:
         break
     
     print('1. 実行するwp_listをwpから生成する')
@@ -765,7 +770,7 @@ def main():
     new_episode_flag = True
     print('new_episode_flagを新しくしたよ', new_episode_flag)
 
-    time.sleep(.3)
+    # time.sleep(.3)
 
 
 
