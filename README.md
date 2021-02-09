@@ -1,5 +1,6 @@
-# evtol-rl
-eVTOLによるwaypointを使った強化学習
+# 
+eVTOLによるwaypointを使った強化学習<br>
+pwmの累計により消費電力を推定し報酬値から減算することでhoverモードとplaneモードの使い分けを消費電力に基づき自動化する<br>
 シミュレーション環境はDronecodeのドキュメントで紹介されているGazebo Simulationを使用
 
 ## Enviroment
@@ -7,28 +8,23 @@ eVTOLによるwaypointを使った強化学習
 - ROS Melodic
 
 ## Installation
-- [px4のビルド環境]()
-- [ROSのセットアップ]
-- [Launching Gazebo with ROS Wrappers](https://dev.px4.io/master/en/simulation/ros_interface.html)
-- [MAVROSのインストール]
+- [PX4, Gazeboのインストール](https://docs.px4.io/master/en/dev_setup/dev_env_linux_ubuntu.html#gazebo-jmavsim-and-nuttx-pixhawk-targets)
+- [ROSのセットアップ](https://docs.px4.io/master/en/dev_setup/dev_env_linux_ubuntu.html#ros-gazebo)
+- [MAVROSのインストール](https://docs.px4.io/master/en/ros/mavros_installation.html)
 
 ## how to use
-### setup
 - 環境のインストールを完了
 - `catkin_ws/src` 配下にenergyを配置
 - インストールした`PX4-Autopilot`リポジトリのmavrosのlaunchファイルで使用する機体をstandardVTOLに指定する
   - `PX4-Autopilot/launch/mavros_posix_sitl.launch`のvehicle設定を書き換える
-   ```
-   <arg name="vehicle" default="iris"/>
-   ```
-   を以下のように修正
-   ```
-   <arg name="vehicle" default="standard_vtol"/>
+   ```diff
+   - <arg name="vehicle" default="iris"/>
+   + <arg name="vehicle" default="standard_vtol"/>
    ```
 
 ### 学習の実行
 #### Gazebo環境の起動
-```
+```shell
 # cloneしてきたpx4のリポジトリに入る
 $ cd src/PX4-Autopilot_default
 
@@ -45,7 +41,9 @@ roslaunch px4 mavros_posix_sitl.launch
 
 #### 学習用ノードの起動
 別のTerminalで学習用ノードを立ち上げる
-```
+```shell
 cd catkin_ws
 rosrun energy qlearn.py
 ```
+
+## 学習データの分析
