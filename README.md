@@ -29,11 +29,11 @@ pwmの累計により消費電力を推定し報酬値から減算すること�
 $ cd src/PX4-Autopilot_default
 
 # pathを通す
-DONT_RUN=1 make px4_sitl_default gazebo
-source ~/catkin_ws/devel/setup.bash    # (optional)
-source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
-export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
-export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
+$ DONT_RUN=1 make px4_sitl_default gazebo
+$ source ~/catkin_ws/devel/setup.bash    # (optional)
+$ source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
+$ export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)
+$ export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:$(pwd)/Tools/sitl_gazebo
 
 # ROS上でpx4とgazeboとmavrosが立ち上がるlaunchファイルを呼び出す
 roslaunch px4 mavros_posix_sitl.launch
@@ -42,8 +42,8 @@ roslaunch px4 mavros_posix_sitl.launch
 #### 学習用ノードの起動
 別のTerminalで学習用ノードを立ち上げる
 ```shell
-cd catkin_ws
-rosrun energy qlearn.py
+$ cd catkin_ws
+$ rosrun energy qlearn.py
 ```
 
 ## 学習データの分析
