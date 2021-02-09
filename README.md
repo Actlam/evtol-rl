@@ -1,4 +1,4 @@
-# 
+# evtol-rl
 eVTOLによるwaypointを使った強化学習<br>
 pwmの累計により消費電力を推定し報酬値から減算することでhoverモードとplaneモードの使い分けを消費電力に基づき自動化する<br>
 シミュレーション環境はDronecodeのドキュメントで紹介されているGazebo Simulationを使用
@@ -47,3 +47,4 @@ rosrun energy qlearn.py
 ```
 
 ## 学習データの分析
+追加予定
